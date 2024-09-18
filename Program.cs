@@ -30,7 +30,7 @@ kernelBuilder.Services.AddSingleton<SearchIndexClient>((_) => new SearchIndexCli
 kernelBuilder.AddAzureOpenAITextEmbeddingGeneration("ada", Environment.GetEnvironmentVariable("AZURE_OAI_ENDPOINT")!, Environment.GetEnvironmentVariable("AZURE_OAI_APIKEY")!);
 
 // Chat completion service to ask questions based on data from Azure AI Search index.
-kernelBuilder.AddAzureOpenAIChatCompletion("gpt4-0125", Environment.GetEnvironmentVariable("AZURE_OAI_ENDPOINT")!, Environment.GetEnvironmentVariable("AZURE_OAI_APIKEY")!);
+kernelBuilder.AddAzureOpenAIChatCompletion("gpt4o", Environment.GetEnvironmentVariable("AZURE_OAI_ENDPOINT")!, Environment.GetEnvironmentVariable("AZURE_OAI_APIKEY")!);
 
 // Register Azure AI Search Plugin
 kernelBuilder.Plugins.AddFromType<AzureAISearchPlugin>();
@@ -40,20 +40,21 @@ var kernel = kernelBuilder.Build();
 
 Console.WriteLine("Creating AzureAI agent...");
 
+OpenAIAssistantDefinition definition = new(modelId: "gpt4o");
+
 OpenAIAssistantAgent agent =
 await OpenAIAssistantAgent.CreateAsync(
     kernel,
-    config: new(Environment.GetEnvironmentVariable("AZURE_OAI_APIKEY")!, Environment.GetEnvironmentVariable("AZURE_OAI_ENDPOINT")!),
-    new()
+    clientProvider: OpenAIClientProvider.ForAzureOpenAI(Environment.GetEnvironmentVariable("AZURE_OAI_APIKEY")!, new Uri(Environment.GetEnvironmentVariable("AZURE_OAI_ENDPOINT")!)),
+    new(definition.ModelId)
     {
-        ModelId = "gpt4-0125",
         Name = "AzureAI",
         Description = Descriptions.AzureAI,
         Instructions = Instructions.AzureAI,
         EnableCodeInterpreter = true,
     });
 
-string thread = await agent.CreateThreadAsync();
+var thread = await agent.CreateThreadAsync();
 
 Console.WriteLine("[COPILOT] : How can I help you today?");
 
@@ -61,6 +62,10 @@ while (true)
 {
     Console.Write("[YOU] : ");
     var input = Console.ReadLine();
+    if (input == "exit")
+    {
+        break;
+    }
 
     var chat = new AgentGroupChat(agent);
 
